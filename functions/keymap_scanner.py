@@ -78,6 +78,29 @@ class MultiHotkeyGroup:
     items: tuple[KeymapItemRef, ...]
 
 
+@dataclass(frozen=True)
+class HotkeyConflictKey:
+    keymap_name: str
+    space_type: str
+    region_type: str
+    map_type: str
+    event_type: str
+    value: str
+    any: bool
+    ctrl: int
+    shift: int
+    alt: int
+    oskey: int
+    key_modifier: str
+    direction: str
+
+
+@dataclass(frozen=True)
+class HotkeyConflictGroup:
+    key: HotkeyConflictKey
+    items: tuple[KeymapItemRef, ...]
+
+
 def get_active_keyconfig() -> bpy.types.KeyConfig:
     keyconfig = bpy.context.window_manager.keyconfigs.active
     if keyconfig is None:
@@ -147,6 +170,24 @@ def keymap_function_key(keymap: bpy.types.KeyMap, item: bpy.types.KeyMapItem) ->
         region_type=keymap.region_type,
         idname=item.idname,
         properties=tuple(sorted(iter_property_items(item))),
+    )
+
+
+def hotkey_conflict_key(keymap: bpy.types.KeyMap, item: bpy.types.KeyMapItem) -> HotkeyConflictKey:
+    return HotkeyConflictKey(
+        keymap_name=keymap.name,
+        space_type=keymap.space_type,
+        region_type=keymap.region_type,
+        map_type=item.map_type,
+        event_type=item.type,
+        value=item.value,
+        any=bool(item.any),
+        ctrl=item.ctrl,
+        shift=item.shift,
+        alt=item.alt,
+        oskey=item.oskey,
+        key_modifier=item.key_modifier,
+        direction=item.direction,
     )
 
 
@@ -284,6 +325,37 @@ def scan_multi_hotkey_bindings(include_inactive: bool = False) -> list[MultiHotk
             group.key.region_type,
             group.label.casefold(),
             group.key.idname,
+        ),
+    )
+
+
+def scan_hotkey_conflicts(include_inactive: bool = False) -> list[HotkeyConflictGroup]:
+    groups: dict[HotkeyConflictKey, list[KeymapItemRef]] = defaultdict(list)
+    for keymap in iter_keymaps(get_user_keyconfig()):
+        if keymap.is_modal:
+            continue
+        for item in keymap.keymap_items:
+            if not include_inactive and not item.active:
+                continue
+            if not item.idname:
+                continue
+            groups[hotkey_conflict_key(keymap, item)].append(make_item_ref(keymap, item))
+
+    result = []
+    for key, refs in groups.items():
+        functions = {(ref.signature.idname, ref.signature.properties) for ref in refs}
+        if len(functions) <= 1:
+            continue
+        result.append(HotkeyConflictGroup(key=key, items=tuple(refs)))
+    return sorted(
+        result,
+        key=lambda group: (
+            group.key.keymap_name.casefold(),
+            group.key.space_type,
+            group.key.region_type,
+            group.key.map_type,
+            group.key.event_type,
+            group.key.value,
         ),
     )
 

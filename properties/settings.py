@@ -33,7 +33,11 @@ class KMTOOLS_PG_settings(bpy.types.PropertyGroup):
         default=True,
     )
     show_multi_hotkey_results: bpy.props.BoolProperty(default=False)
+    expand_multi_hotkey_results: bpy.props.BoolProperty(default=True)
     multi_hotkey_result_count: bpy.props.IntProperty(default=0)
+    show_hotkey_conflict_results: bpy.props.BoolProperty(default=False)
+    expand_hotkey_conflict_results: bpy.props.BoolProperty(default=True)
+    hotkey_conflict_result_count: bpy.props.IntProperty(default=0)
 
 
 def register():

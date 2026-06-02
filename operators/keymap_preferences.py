@@ -1,7 +1,7 @@
 import bpy
 
 from ..functions.keymap_importer import import_keymap_preset, remove_invalid_user_keymap_items
-from ..functions.keymap_scanner import scan_multi_hotkey_bindings
+from ..functions.keymap_scanner import scan_hotkey_conflicts, scan_multi_hotkey_bindings
 
 
 class KMTOOLS_OT_import_keymap_preset(bpy.types.Operator):
@@ -54,15 +54,64 @@ class KMTOOLS_OT_scan_multi_hotkey_bindings(bpy.types.Operator):
     """Find same-context operator/property bindings with more than one active hotkey."""
 
     bl_idname = "keymap_tools.scan_multi_hotkey_bindings"
-    bl_label = "Scan Duplicate Hotkeys"
-    bl_description = "List same-context operator bindings that have multiple different hotkeys"
+    bl_label = "Scan Multi-Bound Actions"
+    bl_description = "List same-context actions that are bound to multiple different hotkeys"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
         groups = scan_multi_hotkey_bindings(include_inactive=False)
         settings = context.window_manager.keymap_tools_settings
         settings.show_multi_hotkey_results = True
+        settings.expand_multi_hotkey_results = True
         settings.multi_hotkey_result_count = len(groups)
-        print(f"Keymap Tools multi-hotkey scan: groups={len(groups)}")
-        self.report({"INFO"}, f"Found {len(groups)} duplicate hotkey groups")
+        print(f"Keymap Tools multi-bound action scan: groups={len(groups)}")
+        self.report({"INFO"}, f"Found {len(groups)} multi-bound action groups")
+        return {"FINISHED"}
+
+
+class KMTOOLS_OT_scan_hotkey_conflicts(bpy.types.Operator):
+    """Find same-context hotkeys that trigger multiple actions."""
+
+    bl_idname = "keymap_tools.scan_hotkey_conflicts"
+    bl_label = "Scan Hotkey Conflicts"
+    bl_description = "List same-context hotkeys that are assigned to multiple actions"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        groups = scan_hotkey_conflicts(include_inactive=False)
+        settings = context.window_manager.keymap_tools_settings
+        settings.show_hotkey_conflict_results = True
+        settings.expand_hotkey_conflict_results = True
+        settings.hotkey_conflict_result_count = len(groups)
+        print(f"Keymap Tools hotkey conflict scan: groups={len(groups)}")
+        self.report({"INFO"}, f"Found {len(groups)} hotkey conflict groups")
+        return {"FINISHED"}
+
+
+class KMTOOLS_OT_clear_keymap_tool_results(bpy.types.Operator):
+    """Clear displayed keymap scan results."""
+
+    bl_idname = "keymap_tools.clear_results"
+    bl_label = "Clear Results"
+    bl_description = "Clear displayed keymap scan results"
+    bl_options = {"REGISTER"}
+
+    result_type: bpy.props.EnumProperty(
+        items=(
+            ("MULTI_BOUND", "Multi-Bound Actions", "Clear multi-bound action results"),
+            ("CONFLICTS", "Hotkey Conflicts", "Clear hotkey conflict results"),
+        ),
+        default="MULTI_BOUND",
+    )
+
+    def execute(self, context):
+        settings = context.window_manager.keymap_tools_settings
+        if self.result_type == "MULTI_BOUND":
+            settings.show_multi_hotkey_results = False
+            settings.multi_hotkey_result_count = 0
+        elif self.result_type == "CONFLICTS":
+            settings.show_hotkey_conflict_results = False
+            settings.hotkey_conflict_result_count = 0
+        else:
+            raise RuntimeError(f"Unknown keymap result type: {self.result_type}")
         return {"FINISHED"}
