@@ -52,6 +52,8 @@ class KeymapItemSignature:
 @dataclass(frozen=True)
 class KeymapFunctionKey:
     keymap_name: str
+    space_type: str
+    region_type: str
     idname: str
     properties: tuple[tuple[str, str], ...]
 
@@ -59,6 +61,9 @@ class KeymapFunctionKey:
 @dataclass(frozen=True)
 class KeymapItemRef:
     keymap_name: str
+    space_type: str
+    region_type: str
+    is_modal: bool
     item_id: int
     idname: str
     label: str
@@ -104,6 +109,18 @@ def find_keymap(name: str, keyconfig: bpy.types.KeyConfig | None = None) -> bpy.
     raise KeyError(f"Keymap not found: {name}")
 
 
+def find_keymap_for_ref(ref: KeymapItemRef, keyconfig: bpy.types.KeyConfig | None = None) -> bpy.types.KeyMap:
+    for keymap in iter_keymaps(keyconfig):
+        if keymap.name != ref.keymap_name:
+            continue
+        if keymap.space_type != ref.space_type or keymap.region_type != ref.region_type:
+            continue
+        if keymap.is_modal != ref.is_modal:
+            continue
+        return keymap
+    raise KeyError(f"Keymap not found for item: {ref.keymap_name}")
+
+
 def keymap_item_signature(keymap: bpy.types.KeyMap, item: bpy.types.KeyMapItem) -> KeymapItemSignature:
     return KeymapItemSignature(
         keymap_name=keymap.name,
@@ -126,6 +143,8 @@ def keymap_item_signature(keymap: bpy.types.KeyMap, item: bpy.types.KeyMapItem) 
 def keymap_function_key(keymap: bpy.types.KeyMap, item: bpy.types.KeyMapItem) -> KeymapFunctionKey:
     return KeymapFunctionKey(
         keymap_name=keymap.name,
+        space_type=keymap.space_type,
+        region_type=keymap.region_type,
         idname=item.idname,
         properties=tuple(sorted(iter_property_items(item))),
     )
@@ -158,6 +177,9 @@ def iter_operator_property_items(
 def make_item_ref(keymap: bpy.types.KeyMap, item: bpy.types.KeyMapItem) -> KeymapItemRef:
     return KeymapItemRef(
         keymap_name=keymap.name,
+        space_type=keymap.space_type,
+        region_type=keymap.region_type,
+        is_modal=keymap.is_modal,
         item_id=item.id,
         idname=item.idname,
         label=item.name,
@@ -203,6 +225,7 @@ def collect_default_signatures(include_inactive: bool = False) -> set[KeymapItem
             if include_inactive or item.active:
                 signatures.add(keymap_item_signature(keymap, item))
     return signatures
+
 
 def find_hotkey_matches(
     keymap_name: str,
@@ -253,7 +276,16 @@ def scan_multi_hotkey_bindings(include_inactive: bool = False) -> list[MultiHotk
             continue
         label = next((ref.label for ref in refs if ref.label), key.idname)
         result.append(MultiHotkeyGroup(key=key, label=label, items=tuple(refs)))
-    return sorted(result, key=lambda group: (group.key.keymap_name.casefold(), group.label.casefold(), group.key.idname))
+    return sorted(
+        result,
+        key=lambda group: (
+            group.key.keymap_name.casefold(),
+            group.key.space_type,
+            group.key.region_type,
+            group.label.casefold(),
+            group.key.idname,
+        ),
+    )
 
 
 def format_hotkey_ref(ref: KeymapItemRef) -> str:

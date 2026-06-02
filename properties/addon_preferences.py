@@ -3,7 +3,7 @@ from __future__ import annotations
 import bpy
 import rna_keymap_ui
 
-from ..functions.keymap_scanner import find_keymap, get_user_keyconfig, scan_multi_hotkey_bindings
+from ..functions.keymap_scanner import find_keymap_for_ref, get_user_keyconfig, scan_multi_hotkey_bindings
 
 
 class KMTOOLS_AP_preferences(bpy.types.AddonPreferences):
@@ -28,11 +28,11 @@ class KMTOOLS_AP_preferences(bpy.types.AddonPreferences):
             return
 
         for group in groups:
-            keymap = find_keymap(group.key.keymap_name, keyconfig)
             box = layout.box()
             box.label(text=f"{group.label} - {group.key.keymap_name}")
 
             for ref in group.items:
+                keymap = find_keymap_for_ref(ref, keyconfig)
                 item = keymap.keymap_items.from_id(ref.item_id)
                 if item is None:
                     continue
