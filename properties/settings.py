@@ -32,6 +32,10 @@ class KMTOOLS_PG_settings(bpy.types.PropertyGroup):
         description="Include disabled keymap items in scans",
         default=True,
     )
+    multi_hotkey_report: bpy.props.StringProperty(
+        name="Multi-Hotkey Report",
+        default="",
+    )
 
 
 def register():

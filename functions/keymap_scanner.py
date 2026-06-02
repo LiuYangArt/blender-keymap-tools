@@ -59,10 +59,24 @@ class KeymapItemRef:
     signature: KeymapItemSignature
 
 
+@dataclass(frozen=True)
+class MultiHotkeyGroup:
+    idname: str
+    label: str
+    items: tuple[KeymapItemRef, ...]
+
+
 def get_active_keyconfig() -> bpy.types.KeyConfig:
     keyconfig = bpy.context.window_manager.keyconfigs.active
     if keyconfig is None:
         raise RuntimeError("No active Blender keyconfig is available")
+    return keyconfig
+
+
+def get_user_keyconfig() -> bpy.types.KeyConfig:
+    keyconfig = bpy.context.window_manager.keyconfigs.user
+    if keyconfig is None:
+        raise RuntimeError("No Blender user keyconfig is available")
     return keyconfig
 
 
@@ -99,12 +113,13 @@ def keymap_item_signature(keymap: bpy.types.KeyMap, item: bpy.types.KeyMapItem) 
 
 
 def iter_property_items(item: bpy.types.KeyMapItem) -> Iterable[tuple[str, str]]:
-    if item.properties is None:
-        return
     yield from iter_operator_property_items(item.properties)
 
 
-def iter_operator_property_items(properties: bpy.types.OperatorProperties | None, prefix: str = "") -> Iterable[tuple[str, str]]:
+def iter_operator_property_items(
+    properties: bpy.types.OperatorProperties | None,
+    prefix: str = "",
+) -> Iterable[tuple[str, str]]:
     if properties is None:
         return
     for name in properties.keys():
@@ -183,12 +198,63 @@ def find_hotkey_matches(
     return matches
 
 
+def scan_multi_hotkey_bindings(include_inactive: bool = False) -> list[MultiHotkeyGroup]:
+    groups: dict[str, list[KeymapItemRef]] = defaultdict(list)
+    for keymap in iter_keymaps(get_user_keyconfig()):
+        if keymap.is_modal:
+            continue
+        for item in keymap.keymap_items:
+            if not include_inactive and not item.active:
+                continue
+            if item.idname:
+                groups[item.idname].append(make_item_ref(keymap, item))
+
+    result = []
+    for idname, refs in groups.items():
+        hotkeys = {format_hotkey_ref(ref) for ref in refs}
+        if len(hotkeys) <= 1:
+            continue
+        label = next((ref.label for ref in refs if ref.label), idname)
+        result.append(MultiHotkeyGroup(idname=idname, label=label, items=tuple(refs)))
+    return sorted(result, key=lambda group: (group.label.casefold(), group.idname))
+
+
+def format_hotkey_ref(ref: KeymapItemRef) -> str:
+    sig = ref.signature
+    modifiers = [
+        name
+        for name, enabled in (("Ctrl", sig.ctrl), ("Shift", sig.shift), ("Alt", sig.alt), ("OS", sig.oskey))
+        if enabled
+    ]
+    if sig.key_modifier and sig.key_modifier != "NONE":
+        modifiers.append(sig.key_modifier)
+    hotkey = "+".join([*modifiers, sig.event_type]) if modifiers else sig.event_type
+    return f"{hotkey} {sig.value}"
+
+
 def format_item_ref(ref: KeymapItemRef) -> str:
     state = "active" if ref.active else "inactive"
-    sig = ref.signature
-    modifiers = "+".join(name for name, enabled in (("Ctrl", sig.ctrl), ("Shift", sig.shift), ("Alt", sig.alt), ("OS", sig.oskey)) if enabled)
-    hotkey = f"{modifiers}+{sig.event_type}" if modifiers else sig.event_type
-    return f"[{state}] {ref.keymap_name}: {hotkey} {sig.value} -> {ref.idname} ({ref.label})"
+    hotkey = format_hotkey_ref(ref)
+    return f"[{state}] {ref.keymap_name}: {hotkey} -> {ref.idname} ({ref.label})"
+
+
+def format_multi_hotkey_report(groups: list[MultiHotkeyGroup], limit: int = 50) -> str:
+    if not groups:
+        return "No multi-hotkey operators found."
+
+    lines = [f"Found {len(groups)} operators with multiple hotkeys."]
+    for group in groups[:limit]:
+        lines.append(f"{group.label} ({group.idname})")
+        seen = set()
+        for ref in group.items:
+            entry = f"  {ref.keymap_name}: {format_hotkey_ref(ref)}"
+            if entry in seen:
+                continue
+            seen.add(entry)
+            lines.append(entry)
+    if len(groups) > limit:
+        lines.append(f"... {len(groups) - limit} more")
+    return "\n".join(lines)
 
 
 def list_available_key_summary(keymap_name: str, include_inactive: bool = True) -> tuple[int, int]:

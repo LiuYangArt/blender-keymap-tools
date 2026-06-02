@@ -1,6 +1,7 @@
 import bpy
 
 from ..functions.keymap_importer import import_keymap_preset, remove_invalid_user_keymap_items
+from ..functions.keymap_scanner import format_multi_hotkey_report, scan_multi_hotkey_bindings
 
 
 class KMTOOLS_OT_import_keymap_preset(bpy.types.Operator):
@@ -8,7 +9,7 @@ class KMTOOLS_OT_import_keymap_preset(bpy.types.Operator):
 
     bl_idname = "keymap_tools.import_keymap_preset"
     bl_label = "Import Keymap"
-    bl_description = "Import a Blender keymap preset and skip bindings that already exist"
+    bl_description = "Import a Blender keymap preset, skip duplicates, and remove invalid bindings"
     bl_options = {"REGISTER", "UNDO"}
 
     filepath: bpy.props.StringProperty(name="File Path", subtype="FILE_PATH")
@@ -46,4 +47,21 @@ class KMTOOLS_OT_remove_invalid_keymap_items(bpy.types.Operator):
         result = remove_invalid_user_keymap_items()
         self.report({"INFO"}, f"Removed {result.removed} invalid keymap items")
         print(f"Keymap Tools invalid cleanup: scanned={result.scanned}, removed={result.removed}")
+        return {"FINISHED"}
+
+
+class KMTOOLS_OT_scan_multi_hotkey_bindings(bpy.types.Operator):
+    """Find operators that have more than one active hotkey."""
+
+    bl_idname = "keymap_tools.scan_multi_hotkey_bindings"
+    bl_label = "Scan Duplicate Hotkeys"
+    bl_description = "List operators that are bound to multiple different hotkeys"
+    bl_options = {"REGISTER"}
+
+    def execute(self, context):
+        groups = scan_multi_hotkey_bindings(include_inactive=False)
+        report = format_multi_hotkey_report(groups)
+        context.window_manager.keymap_tools_settings.multi_hotkey_report = report
+        print("Keymap Tools multi-hotkey scan:\n" + report)
+        self.report({"INFO"}, f"Found {len(groups)} operators with multiple hotkeys")
         return {"FINISHED"}
