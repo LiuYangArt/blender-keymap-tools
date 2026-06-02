@@ -1,0 +1,15 @@
+schema_version = "1.0.0"
+
+id = "keymap_tools"
+version = "0.1.0"
+name = "Keymap Tools"
+tagline = "Inspect and clean Blender keymap bindings"
+maintainer = "LiuYang"
+type = "add-on"
+
+tags = ["3D View", "User Interface"]
+blender_version_min = "5.0.0"
+
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
