@@ -1,7 +1,7 @@
 import bpy
 
 from ..functions.keymap_importer import import_keymap_preset, remove_invalid_user_keymap_items
-from ..functions.keymap_scanner import format_multi_hotkey_report, scan_multi_hotkey_bindings
+from ..functions.keymap_scanner import scan_multi_hotkey_bindings
 
 
 class KMTOOLS_OT_import_keymap_preset(bpy.types.Operator):
@@ -51,17 +51,18 @@ class KMTOOLS_OT_remove_invalid_keymap_items(bpy.types.Operator):
 
 
 class KMTOOLS_OT_scan_multi_hotkey_bindings(bpy.types.Operator):
-    """Find operators that have more than one active hotkey."""
+    """Find same-context operator/property bindings with more than one active hotkey."""
 
     bl_idname = "keymap_tools.scan_multi_hotkey_bindings"
     bl_label = "Scan Duplicate Hotkeys"
-    bl_description = "List operators that are bound to multiple different hotkeys"
+    bl_description = "List same-context operator bindings that have multiple different hotkeys"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
         groups = scan_multi_hotkey_bindings(include_inactive=False)
-        report = format_multi_hotkey_report(groups)
-        context.window_manager.keymap_tools_settings.multi_hotkey_report = report
-        print("Keymap Tools multi-hotkey scan:\n" + report)
-        self.report({"INFO"}, f"Found {len(groups)} operators with multiple hotkeys")
+        settings = context.window_manager.keymap_tools_settings
+        settings.show_multi_hotkey_results = True
+        settings.multi_hotkey_result_count = len(groups)
+        print(f"Keymap Tools multi-hotkey scan: groups={len(groups)}")
+        self.report({"INFO"}, f"Found {len(groups)} duplicate hotkey groups")
         return {"FINISHED"}
