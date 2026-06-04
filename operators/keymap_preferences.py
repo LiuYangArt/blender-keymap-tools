@@ -26,11 +26,12 @@ class KMTOOLS_OT_import_keymap_preset(bpy.types.Operator):
             "Keymap Tools import: "
             f"keymaps={result.keymaps_seen}, items={result.items_seen}, "
             f"imported={result.imported}, skipped_duplicates={result.skipped_duplicates}, "
-            f"removed_invalid={result.removed_invalid}"
+            f"updated_active={result.updated_active}, removed_invalid={result.removed_invalid}"
         )
         self.report(
             {"INFO"},
-            f"Imported {result.imported}; skipped {result.skipped_duplicates}; removed invalid {result.removed_invalid}",
+            f"Imported {result.imported}; skipped {result.skipped_duplicates}; "
+            f"updated toggles {result.updated_active}; removed invalid {result.removed_invalid}",
         )
         return {"FINISHED"}
 
