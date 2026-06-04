@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import tomllib
 import zipfile
 from pathlib import Path
 
+from versioning import assert_versions_match
+
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST_PATH = ROOT / "blender_manifest.toml"
 PACKAGE_ID = "keymap_tools"
 
 ROOT_FILES = (
@@ -20,20 +20,10 @@ PACKAGE_DIRS = (
     "operators",
     "panels",
     "properties",
-    "blendfiles",
 )
 EXCLUDED_PARTS = {"__pycache__"}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 EXCLUDED_BLEND_BACKUPS = (".blend1", ".blend2", ".blend@", ".blend~")
-
-
-def read_version() -> str:
-    with MANIFEST_PATH.open("rb") as handle:
-        manifest = tomllib.load(handle)
-    version = manifest.get("version")
-    if not isinstance(version, str) or not version:
-        raise RuntimeError(f"Missing string version in {MANIFEST_PATH}")
-    return version
 
 
 def should_include(path: Path) -> bool:
@@ -64,8 +54,8 @@ def iter_package_files() -> list[Path]:
     return sorted(files, key=lambda path: path.relative_to(ROOT).as_posix())
 
 
-def build_package(output_dir: Path) -> Path:
-    version = read_version()
+def build_package(output_dir: Path, release_tag: str | None = None) -> Path:
+    version = assert_versions_match(release_tag)
     files = iter_package_files()
     if not files:
         raise RuntimeError("No package files found")
@@ -85,9 +75,10 @@ def build_package(output_dir: Path) -> Path:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build the Keymap Tools release zip.")
     parser.add_argument("--output", type=Path, default=ROOT / "dist", help="Output directory for the zip file.")
+    parser.add_argument("--release-tag", help="Expected GitHub release tag. Must be v{plugin version}.")
     args = parser.parse_args()
 
-    archive_path = build_package(args.output.resolve())
+    archive_path = build_package(args.output.resolve(), args.release_tag)
     print(archive_path)
     return 0
 

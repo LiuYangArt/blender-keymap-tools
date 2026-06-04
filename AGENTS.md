@@ -44,9 +44,10 @@
 
 ## Release Packaging
 - Local package: `python scripts/build_release_package.py`
-- GitHub Release: push tag `vX.Y.Z`, or run `gh workflow run release.yml -f tag=vX.Y.Z`
-- Package script only includes: `__init__.py`, `auto_load.py`, `blender_manifest.toml`, `functions/`, `operators/`, `panels/`, `properties/`, `blendfiles/`.
-- Before release, keep `blender_manifest.toml` version and `__init__.py` `bl_info` version in sync.
+- GitHub Release: push tag `vX.Y.Z`, or run `gh workflow run release.yml` to auto-bump patch version and release.
+- Package script only includes: `__init__.py`, `auto_load.py`, `blender_manifest.toml`, `functions/`, `operators/`, `panels/`, `properties/`.
+- Version source of truth: `blender_manifest.toml`; use `python scripts/versioning.py sync` to update `__init__.py` `bl_info` from it.
+- Workflow dispatch release bumps patch version automatically, commits the synced version, tags `vX.Y.Z`, then builds/releases that exact tag.
 
 ## Verification
 - Syntax check: `python scripts/validate_addon.py`

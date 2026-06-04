@@ -3,6 +3,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from versioning import assert_versions_match
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = "KMTOOLS_"
@@ -28,6 +30,8 @@ def validate_class_names(path: Path) -> list[str]:
 
 
 def main() -> int:
+    assert_versions_match()
+
     errors = []
     for path in iter_python_files():
         compile(path.read_text(encoding="utf-8"), str(path), "exec")
