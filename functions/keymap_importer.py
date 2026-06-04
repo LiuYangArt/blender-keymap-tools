@@ -35,6 +35,7 @@ class KeymapImportResult:
     items_seen: int
     imported: int
     skipped_duplicates: int
+    skipped_invalid: int
     updated_active: int
     removed_invalid: int
 
@@ -50,6 +51,7 @@ _KEYMAP_DATA_KEYS = {"items"}
 _EVENT_OPTION_KEYS = {"any", "shift", "ctrl", "alt", "oskey", "hyper", "key_modifier", "direction", "repeat"}
 _NON_MODAL_EVENT_OPTION_KEYS = _EVENT_OPTION_KEYS | {"head"}
 _ITEM_OPTION_KEYS = {"properties", "active"}
+_TOOL_SET_BY_ID_OPERATOR = "wm.tool_set_by_id"
 
 
 def import_keymap_preset(filepath: str) -> KeymapImportResult:
@@ -61,6 +63,7 @@ def import_keymap_preset(filepath: str) -> KeymapImportResult:
     items_seen = 0
     imported = 0
     skipped_duplicates = 0
+    skipped_invalid = 0
     updated_active = 0
 
     for keymap_name, keymap_args, keymap_data in keyconfig_data:
@@ -83,6 +86,10 @@ def import_keymap_preset(filepath: str) -> KeymapImportResult:
 
         for idname, event_args, item_args in keymap_data.get("items", ()):  # Blender export format.
             items_seen += 1
+            if not import_item_is_valid(keymap_name, keymap.space_type, is_modal, idname, event_args, item_args):
+                skipped_invalid += 1
+                continue
+
             item_key = make_import_item_key(keymap_name, is_modal, idname, event_args, item_args)
             existing_item_matches = existing_items.get(item_key)
             if existing_item_matches:
@@ -101,6 +108,7 @@ def import_keymap_preset(filepath: str) -> KeymapImportResult:
         items_seen=items_seen,
         imported=imported,
         skipped_duplicates=skipped_duplicates,
+        skipped_invalid=skipped_invalid,
         updated_active=updated_active,
         removed_invalid=cleanup_result.removed,
     )
@@ -116,7 +124,7 @@ def remove_invalid_user_keymap_items() -> InvalidKeymapCleanupResult:
             continue
         for item in list(keymap.keymap_items):
             scanned += 1
-            if operator_exists(item.idname):
+            if keymap_item_is_valid(keymap, item):
                 continue
             print(f"Keymap Tools removing invalid item: {keymap.name}: {item.idname} {item.to_string(compact=True)}")
             keymap.keymap_items.remove(item)
@@ -309,6 +317,76 @@ def apply_properties(
                 raise RuntimeError(f"Failed to store keymap property {name!r} on {idname!r}") from error
         except Exception as error:
             raise RuntimeError(f"Failed to set keymap property {name!r} on {idname!r}") from error
+
+
+def import_item_is_valid(
+    keymap_name: str,
+    space_type: str,
+    is_modal: bool,
+    idname: str,
+    event_args: dict[str, Any],
+    item_args: dict[str, Any] | None,
+) -> bool:
+    if is_modal:
+        return True
+    if not operator_exists(idname):
+        print(f"Keymap Tools skipping invalid import item: {keymap_name}: {idname} {event_args}")
+        return False
+    if idname != _TOOL_SET_BY_ID_OPERATOR:
+        return True
+
+    tool_name = import_tool_name(item_args)
+    if tool_exists(space_type, tool_name):
+        return True
+
+    print(f"Keymap Tools skipping invalid import item: {keymap_name}: {idname} tool={tool_name!r}")
+    return False
+
+
+def keymap_item_is_valid(keymap: bpy.types.KeyMap, item: bpy.types.KeyMapItem) -> bool:
+    if not operator_exists(item.idname):
+        return False
+    if item.idname != _TOOL_SET_BY_ID_OPERATOR:
+        return True
+    return tool_exists(keymap.space_type, keymap_item_tool_name(item))
+
+
+def import_tool_name(item_args: dict[str, Any] | None) -> str | None:
+    if not item_args:
+        return None
+    for name, value in item_args.get("properties", ()):
+        if name == "name" and isinstance(value, str):
+            return value
+    return None
+
+
+def keymap_item_tool_name(item: bpy.types.KeyMapItem) -> str | None:
+    properties = item.properties
+    if properties is None:
+        return None
+    if "name" not in properties.keys():
+        return None
+    return properties.name
+
+
+def tool_exists(space_type: str, tool_name: str | None) -> bool:
+    if not tool_name:
+        return False
+
+    try:
+        from bl_ui.space_toolsystem_common import ToolSelectPanelHelper
+    except ImportError as error:
+        raise RuntimeError("Failed to inspect Blender workspace tools") from error
+
+    tool_class = ToolSelectPanelHelper._tool_class_from_space_type(space_type)
+    if tool_class is None:
+        return False
+
+    for tools in tool_class._tools.values():
+        for tool in ToolSelectPanelHelper._tools_flatten_with_dynamic(tools, context=bpy.context):
+            if tool is not None and tool.idname == tool_name:
+                return True
+    return False
 
 
 def operator_exists(idname: str) -> bool:

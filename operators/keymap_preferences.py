@@ -26,12 +26,14 @@ class KMTOOLS_OT_import_keymap_preset(bpy.types.Operator):
             "Keymap Tools import: "
             f"keymaps={result.keymaps_seen}, items={result.items_seen}, "
             f"imported={result.imported}, skipped_duplicates={result.skipped_duplicates}, "
-            f"updated_active={result.updated_active}, removed_invalid={result.removed_invalid}"
+            f"skipped_invalid={result.skipped_invalid}, updated_active={result.updated_active}, "
+            f"removed_invalid={result.removed_invalid}"
         )
         self.report(
             {"INFO"},
             f"Imported {result.imported}; skipped {result.skipped_duplicates}; "
-            f"updated toggles {result.updated_active}; removed invalid {result.removed_invalid}",
+            f"skipped invalid {result.skipped_invalid}; updated toggles {result.updated_active}; "
+            f"removed invalid {result.removed_invalid}",
         )
         return {"FINISHED"}
 
@@ -79,7 +81,7 @@ class KMTOOLS_OT_scan_hotkey_conflicts(bpy.types.Operator):
     bl_options = {"REGISTER"}
 
     def execute(self, context):
-        groups = scan_hotkey_conflicts(include_inactive=False)
+        groups = scan_hotkey_conflicts(include_inactive=True)
         settings = context.window_manager.keymap_tools_settings
         settings.show_hotkey_conflict_results = True
         settings.expand_hotkey_conflict_results = True

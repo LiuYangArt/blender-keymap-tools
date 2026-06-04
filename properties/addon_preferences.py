@@ -41,7 +41,7 @@ class KMTOOLS_AP_preferences(bpy.types.AddonPreferences):
                     self.draw_keymap_items(keyconfig, group.items, box)
 
         if settings.show_hotkey_conflict_results:
-            groups = scan_hotkey_conflicts(include_inactive=False)
+            groups = scan_hotkey_conflicts(include_inactive=True)
             self.draw_result_header(
                 layout,
                 settings,
