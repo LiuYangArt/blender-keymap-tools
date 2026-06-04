@@ -59,11 +59,13 @@ def read_bl_info_version() -> str:
 
 
 def replace_once(path: Path, pattern: re.Pattern[str], replacement: str) -> None:
-    text = path.read_text(encoding="utf-8", newline="")
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        text = handle.read()
     text, count = pattern.subn(replacement, text, count=1)
     if count != 1:
         raise RuntimeError(f"Expected exactly one version field in {path}")
-    path.write_text(text, encoding="utf-8", newline="")
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        handle.write(text)
 
 
 def write_manifest_version(version: str) -> None:
