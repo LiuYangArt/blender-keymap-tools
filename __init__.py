@@ -16,7 +16,7 @@ bl_info = {
     "author": "LiuYang",
     "description": "Inspect, diagnose, and clean Blender keymap bindings.",
     "blender": (5, 0, 0),
-    "version": (0, 1, 0),
+    "version": (0, 1, 1),
     "location": "View3D > Sidebar > Keymap Tools",
     "warning": "",
     "category": "3D View",
